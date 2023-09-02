@@ -1,20 +1,7 @@
 import { Buffer } from "buffer";
 
-import {
-	PublicKey,
-	TransactionInstruction,
-	SystemInstruction,
-	SystemProgram,
-	Connection,
-	Message,
-	Transaction,
-	AccountMeta,
-	ParsedMessage,
-	PartiallyDecodedInstruction,
-	Finality,
-	VersionedMessage,
-	LoadedAddresses,
-} from "@solana/web3.js";
+import { BN, BorshInstructionCoder, Idl, SystemProgram as SystemProgramIdl } from "@coral-xyz/anchor";
+import { blob, struct, u8 } from "@solana/buffer-layout";
 import {
 	ASSOCIATED_TOKEN_PROGRAM_ID,
 	AuthorityType,
@@ -38,9 +25,24 @@ import {
 	decodeTransferCheckedInstruction,
 	decodeTransferInstruction,
 } from "@solana/spl-token";
-import { BN, BorshInstructionCoder, Idl, SystemProgram as SystemProgramIdl } from "@coral-xyz/anchor";
-import { blob, struct, u8 } from "@solana/buffer-layout";
+import {
+	AccountMeta,
+	Connection,
+	Finality,
+	LoadedAddresses,
+	Message,
+	ParsedMessage,
+	PartiallyDecodedInstruction,
+	PublicKey,
+	SystemInstruction,
+	SystemProgram,
+	Transaction,
+	TransactionInstruction,
+	VersionedMessage,
+	VersionedTransaction,
+} from "@solana/web3.js";
 
+import { compiledInstructionToInstruction, flattenTransactionResponse, parseTransactionAccounts, parsedInstructionToInstruction } from "./helpers";
 import {
 	AssociatedTokenProgramIdlLike,
 	IdlAccount,
@@ -57,7 +59,6 @@ import {
 	SplToken,
 	UnknownInstruction,
 } from "./interfaces";
-import { compiledInstructionToInstruction, flattenTransactionResponse, parsedInstructionToInstruction, parseTransactionAccounts } from "./helpers";
 
 function decodeSystemInstruction(instruction: TransactionInstruction): ParsedInstruction<SystemProgramIdl> {
 	const ixType = SystemInstruction.decodeInstructionType(instruction);
@@ -230,15 +231,15 @@ function decodeSystemInstruction(instruction: TransactionInstruction): ParsedIns
 
 	return parsed
 		? {
-				...parsed,
-				programId: SystemProgram.programId,
-		  }
+			...parsed,
+			programId: SystemProgram.programId,
+		}
 		: {
-				programId: SystemProgram.programId,
-				name: "unknown",
-				accounts: instruction.keys,
-				args: { unknown: instruction.data },
-		  };
+			programId: SystemProgram.programId,
+			name: "unknown",
+			accounts: instruction.keys,
+			args: { unknown: instruction.data },
+		};
 }
 
 function decodeTokenInstruction(instruction: TransactionInstruction): ParsedInstruction<SplToken> {
@@ -548,15 +549,15 @@ function decodeTokenInstruction(instruction: TransactionInstruction): ParsedInst
 
 	return parsed
 		? {
-				...parsed,
-				programId: TOKEN_PROGRAM_ID,
-		  }
+			...parsed,
+			programId: TOKEN_PROGRAM_ID,
+		}
 		: {
-				programId: TOKEN_PROGRAM_ID,
-				name: "unknown",
-				accounts: instruction.keys,
-				args: { unknown: instruction.data },
-		  };
+			programId: TOKEN_PROGRAM_ID,
+			name: "unknown",
+			accounts: instruction.keys,
+			args: { unknown: instruction.data },
+		};
 }
 
 function decodeAssociatedTokenInstruction(instruction: TransactionInstruction): ParsedInstruction<AssociatedTokenProgramIdlLike> {
@@ -793,8 +794,16 @@ export class SolanaParser {
 	 */
 	parseTransactionDump(txDump: string | Buffer): ParsedInstruction<Idl, string>[] {
 		if (!(txDump instanceof Buffer)) txDump = Buffer.from(txDump, "base64");
-		const tx = Transaction.from(txDump);
-		const message = tx.compileMessage();
+
+		const transactionVersion = VersionedMessage.deserializeMessageVersion(txDump);
+		let message: Message | VersionedMessage;
+		if (transactionVersion == 'legacy') {
+			const tx = Transaction.from(txDump);
+			message = tx.compileMessage();
+		} else {
+			const tx = VersionedTransaction.deserialize(txDump);
+			message = tx.message
+		}
 
 		return this.parseTransactionData(message);
 	}
