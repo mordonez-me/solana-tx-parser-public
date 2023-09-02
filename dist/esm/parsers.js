@@ -1,9 +1,9 @@
 import { Buffer } from "buffer";
-import { PublicKey, SystemInstruction, SystemProgram, Transaction, } from "@solana/web3.js";
-import { ASSOCIATED_TOKEN_PROGRAM_ID, AuthorityType, TOKEN_PROGRAM_ID, TokenInstruction, decodeApproveCheckedInstruction, decodeApproveInstruction, decodeBurnCheckedInstruction, decodeBurnInstruction, decodeCloseAccountInstruction, decodeFreezeAccountInstruction, decodeInitializeAccountInstruction, decodeInitializeMintInstruction, decodeInitializeMintInstructionUnchecked, decodeInitializeMultisigInstruction, decodeMintToCheckedInstruction, decodeMintToInstruction, decodeRevokeInstruction, decodeSetAuthorityInstruction, decodeThawAccountInstruction, decodeTransferCheckedInstruction, decodeTransferInstruction, } from "@solana/spl-token";
 import { BN, BorshInstructionCoder } from "@coral-xyz/anchor";
 import { blob, struct, u8 } from "@solana/buffer-layout";
-import { compiledInstructionToInstruction, flattenTransactionResponse, parsedInstructionToInstruction, parseTransactionAccounts } from "./helpers";
+import { ASSOCIATED_TOKEN_PROGRAM_ID, AuthorityType, TOKEN_PROGRAM_ID, TokenInstruction, decodeApproveCheckedInstruction, decodeApproveInstruction, decodeBurnCheckedInstruction, decodeBurnInstruction, decodeCloseAccountInstruction, decodeFreezeAccountInstruction, decodeInitializeAccountInstruction, decodeInitializeMintInstruction, decodeInitializeMintInstructionUnchecked, decodeInitializeMultisigInstruction, decodeMintToCheckedInstruction, decodeMintToInstruction, decodeRevokeInstruction, decodeSetAuthorityInstruction, decodeThawAccountInstruction, decodeTransferCheckedInstruction, decodeTransferInstruction, } from "@solana/spl-token";
+import { PublicKey, SystemInstruction, SystemProgram, Transaction, VersionedMessage, VersionedTransaction, } from "@solana/web3.js";
+import { compiledInstructionToInstruction, flattenTransactionResponse, parseTransactionAccounts, parsedInstructionToInstruction } from "./helpers";
 function decodeSystemInstruction(instruction) {
     const ixType = SystemInstruction.decodeInstructionType(instruction);
     let parsed;
@@ -696,8 +696,16 @@ export class SolanaParser {
     parseTransactionDump(txDump) {
         if (!(txDump instanceof Buffer))
             txDump = Buffer.from(txDump, "base64");
-        const tx = Transaction.from(txDump);
-        const message = tx.compileMessage();
+        const transactionVersion = VersionedMessage.deserializeMessageVersion(txDump);
+        let message;
+        if (transactionVersion == 'legacy') {
+            const tx = Transaction.from(txDump);
+            message = tx.compileMessage();
+        }
+        else {
+            const tx = VersionedTransaction.deserialize(txDump);
+            message = tx.message;
+        }
         return this.parseTransactionData(message);
     }
 }

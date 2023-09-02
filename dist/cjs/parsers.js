@@ -2,10 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SolanaParser = void 0;
 const buffer_1 = require("buffer");
-const web3_js_1 = require("@solana/web3.js");
-const spl_token_1 = require("@solana/spl-token");
 const anchor_1 = require("@coral-xyz/anchor");
 const buffer_layout_1 = require("@solana/buffer-layout");
+const spl_token_1 = require("@solana/spl-token");
+const web3_js_1 = require("@solana/web3.js");
 const helpers_1 = require("./helpers");
 function decodeSystemInstruction(instruction) {
     const ixType = web3_js_1.SystemInstruction.decodeInstructionType(instruction);
@@ -699,8 +699,16 @@ class SolanaParser {
     parseTransactionDump(txDump) {
         if (!(txDump instanceof buffer_1.Buffer))
             txDump = buffer_1.Buffer.from(txDump, "base64");
-        const tx = web3_js_1.Transaction.from(txDump);
-        const message = tx.compileMessage();
+        const transactionVersion = web3_js_1.VersionedMessage.deserializeMessageVersion(txDump);
+        let message;
+        if (transactionVersion == 'legacy') {
+            const tx = web3_js_1.Transaction.from(txDump);
+            message = tx.compileMessage();
+        }
+        else {
+            const tx = web3_js_1.VersionedTransaction.deserialize(txDump);
+            message = tx.message;
+        }
         return this.parseTransactionData(message);
     }
 }
