@@ -67,7 +67,7 @@
   "dependencies": {
     "@coral-xyz/anchor": "^0.28.1-beta.1",
     "@coral-xyz/spl-token": "^0.28.1-beta.1",
-    "@solana/buffer-layout": "4.0.0",
+    "@solana/buffer-layout": "4.0.1",
     "@solana/spl-token": "^0.3.8",
     "@solana/web3.js": "^1.73.0",
     "buffer": "6.0.3"
